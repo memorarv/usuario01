@@ -361,6 +361,10 @@ main {
   .no-detection-actions { flex-direction: column; }
 }
 
+#noDetectionMessage strong {
+  font-weight: 900;
+}
+
 </style>
 </head>
 
@@ -560,7 +564,7 @@ async function loadMapping() {
     catch { throw new Error('La URL de destino de la cuarta línea no es válida.'); }
     if (url.protocol !== 'https:') throw new Error('La URL de destino debe usar HTTPS.');
     destinationUrl = url.href;
-    noDetectionMessage.textContent = `NO SE HA DETECTADO NOMBRE. ¿DESEA VER VIDEO DE ${titularName || 'ESTE TITULAR'}?`;
+    noDetectionMessage.innerHTML = `NO SE HA DETECTADO NOMBRE. ¿DESEA VER VIDEO DE <strong>${(titularName || 'ESTE TITULAR').toUpperCase()}</strong>?`;
     if (words.length !== 4) throw new Error(`La quinta línea debe contener exactamente 4 palabras; se encontraron ${words.length}.`);
 
     records = words.map((word, index) => ({ id: word, url: url.href, index: index + 1 }));
