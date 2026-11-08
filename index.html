@@ -215,26 +215,6 @@ main {
   border-radius: 0 0 10px;
 }
 
-.helper {
-  margin: 22px 20px 0;
-  padding: 14px 16px;
-  text-align: center;
-  font-size: 15px;
-  line-height: 1.6;
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 16px;
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.helper p {
-  margin: 0 0 7px;
-}
-
-.helper p:last-child {
-  margin-bottom: 0;
-}
 
 .settings-note {
   display: none;
@@ -290,23 +270,12 @@ main {
   height: 38px;
 }
 
-.bottom-status {
-  min-height: 20px;
-  padding: 6px 12px;
-  text-align: center;
-  font-size: 13px;
-  background: var(--panel);
-  border-radius: 20px;
-}
 
 @media (max-height: 650px) {
   .camera-frame {
     margin-top: 24px;
   }
 
-  .helper {
-    margin-top: 14px;
-  }
 
   .bottom-area {
     padding-top: 14px;
@@ -382,6 +351,20 @@ main {
   border-color: #FFD400;
 }
 
+
+/* Estado accesible sin ocupar espacio ni mostrar mensajes debajo del botón */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 </style>
 </head>
 
@@ -431,10 +414,6 @@ main {
 
   </section>
 
-  <section class="helper">
-    <p><strong id="scanInstruction">Activar cámara en botón de mas abajo</strong></p>
-    <p>La imagen en vivo aparecerá dentro del recuadro horizontal.</p>
-  </section>
 
   <div class="settings-note" id="settingsNote">
     <strong>Configuración de reconocimiento</strong>
@@ -475,9 +454,7 @@ main {
     </svg>
   </button>
 
-  <div class="bottom-status" id="bottomStatus" aria-live="polite">
-    Activar cámara en botón de mas abajo
-  </div>
+  <span class="visually-hidden" id="bottomStatus" aria-live="polite"></span>
 </footer>
 
 
@@ -512,7 +489,6 @@ const scanButton = document.getElementById('scanButton');
 const statusLabel = document.getElementById('statusLabel');
 const statusDot = document.getElementById('statusDot');
 const bottomStatus = document.getElementById('bottomStatus');
-const scanInstruction = document.getElementById('scanInstruction');
 const settingsButton = document.getElementById('settingsButton');
 const settingsNote = document.getElementById('settingsNote');
 const canvas = document.getElementById('ocrCanvas');
@@ -649,7 +625,6 @@ async function stopRecognition(updateText = true) {
   video.srcObject = null;
   video.hidden = true;
   placeholder.hidden = false;
-  scanInstruction.textContent = 'Activar cámara en botón de mas abajo';
   statusLabel.textContent = 'Cámara desactivada';
   statusDot.classList.remove('camera-active');
   statusDot.style.background = '#DADADA';
@@ -783,7 +758,6 @@ async function startRecognition() {
     video.hidden = false;
     placeholder.hidden = true;
     await video.play();
-    scanInstruction.textContent = 'Apuntar cámara para reconocimento de nombre';
     statusLabel.textContent = 'Inicializando reconocimiento';
     statusDot.style.background = '';
     statusDot.classList.add('camera-active');
@@ -843,7 +817,6 @@ continueScanButton.addEventListener('click', () => {
   }
   scanning = true;
   startNoDetectionTimer();
-  scanInstruction.textContent = 'Apuntar cámara para reconocimento de nombre';
   bottomStatus.textContent = 'Apuntar cámara para reconocimento de nombre';
   scanLoop();
 });
