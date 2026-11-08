@@ -1,5 +1,5 @@
 usuario01
-config1
+config0
 Sebastián Piñera Echeñique
-https://memorarv.github.io/01_Arnold/
+https://memorarv.github.io/usuario01/video/
 Sebatián Piñera Echeñique Carvallo
