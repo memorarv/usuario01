@@ -167,6 +167,31 @@ main {
   font-size: 16px;
 }
 
+/* Ícono y título centrados horizontalmente en el área de la cámara. */
+.camera-placeholder-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+/* Texto debajo de las esquinas inferiores del marco de enfoque.
+   El marco termina al 81% de la altura; centramos el texto en el 90,5%. */
+.camera-placeholder .camera-instruction {
+  position: absolute;
+  top: 90.5%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 20px);
+  margin: 0;
+  font-size: clamp(11px, 3vw, 13px);
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* MARCO DE ENFOQUE SOBRE LA CÁMARA */
 .focus-frame {
   position: absolute;
@@ -430,17 +455,19 @@ main {
     <canvas id="ocrCanvas" hidden></canvas>
 
     <div class="camera-placeholder" id="cameraPlaceholder">
-      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <rect x="5" y="12" width="38" height="27" rx="4"
-          stroke="currentColor" stroke-width="2.5"/>
-        <path d="M15 12l3-5h12l3 5"
-          stroke="currentColor" stroke-width="2.5"
-          stroke-linejoin="round"/>
-        <circle cx="24" cy="25" r="7"
-          stroke="currentColor" stroke-width="2.5"/>
-      </svg>
-      <strong>Vista de la cámara</strong>
-      <span>Presiona el botón inferior para activar la cámara</span>
+      <div class="camera-placeholder-main">
+        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <rect x="5" y="12" width="38" height="27" rx="4"
+            stroke="currentColor" stroke-width="2.5"/>
+          <path d="M15 12l3-5h12l3 5"
+            stroke="currentColor" stroke-width="2.5"
+            stroke-linejoin="round"/>
+          <circle cx="24" cy="25" r="7"
+            stroke="currentColor" stroke-width="2.5"/>
+        </svg>
+        <strong>Vista de la cámara</strong>
+      </div>
+      <span class="camera-instruction">Presiona el botón inferior para activar la cámara</span>
     </div>
 
     <div class="focus-frame" aria-hidden="true">
