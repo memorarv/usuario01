@@ -432,7 +432,7 @@ main {
   </section>
 
   <section class="helper">
-    <p><strong>Apunta a una placa con un identificador único.</strong></p>
+    <p><strong id="scanInstruction">Activar cámara en botón de mas abajo</strong></p>
     <p>La imagen en vivo aparecerá dentro del recuadro horizontal.</p>
   </section>
 
@@ -476,7 +476,7 @@ main {
   </button>
 
   <div class="bottom-status" id="bottomStatus" aria-live="polite">
-    Listo para activar la cámara
+    Activar cámara en botón de mas abajo
   </div>
 </footer>
 
@@ -512,6 +512,7 @@ const scanButton = document.getElementById('scanButton');
 const statusLabel = document.getElementById('statusLabel');
 const statusDot = document.getElementById('statusDot');
 const bottomStatus = document.getElementById('bottomStatus');
+const scanInstruction = document.getElementById('scanInstruction');
 const settingsButton = document.getElementById('settingsButton');
 const settingsNote = document.getElementById('settingsNote');
 const canvas = document.getElementById('ocrCanvas');
@@ -648,13 +649,14 @@ async function stopRecognition(updateText = true) {
   video.srcObject = null;
   video.hidden = true;
   placeholder.hidden = false;
+  scanInstruction.textContent = 'Activar cámara en botón de mas abajo';
   statusLabel.textContent = 'Cámara desactivada';
   statusDot.classList.remove('camera-active');
   statusDot.style.background = '#DADADA';
   scanButton.disabled = false;
   scanButton.setAttribute('aria-label', 'Activar cámara');
   scanButton.setAttribute('title', 'Activar cámara');
-  if (updateText) bottomStatus.textContent = 'Cámara detenida';
+  if (updateText) bottomStatus.textContent = 'Activar cámara en botón de mas abajo';
 }
 
 
@@ -741,7 +743,7 @@ async function scanLoop() {
     } else {
       lastCandidate = '';
       streak = 0;
-      bottomStatus.textContent = 'Buscando una placa registrada…';
+      bottomStatus.textContent = 'Scaneando';
     }
   } catch (e) {
     console.error('Error OCR:', e);
@@ -781,6 +783,7 @@ async function startRecognition() {
     video.hidden = false;
     placeholder.hidden = true;
     await video.play();
+    scanInstruction.textContent = 'Apuntar cámara para reconocimento de nombre';
     statusLabel.textContent = 'Inicializando reconocimiento';
     statusDot.style.background = '';
     statusDot.classList.add('camera-active');
@@ -802,10 +805,11 @@ async function startRecognition() {
     scanning = true;
     startNoDetectionTimer();
     statusLabel.textContent = 'Reconocimiento activo';
-    bottomStatus.textContent = 'Apunta a una placa registrada';
-    scanButton.disabled = false;
-    scanButton.setAttribute('aria-label', 'Detener reconocimiento');
-    scanButton.setAttribute('title', 'Detener reconocimiento');
+    bottomStatus.textContent = 'Apuntar cámara para reconocimento de nombre';
+    // Con la cámara activa, el botón de acceso queda deshabilitado.
+    scanButton.disabled = true;
+    scanButton.setAttribute('aria-label', 'Cámara activada');
+    scanButton.setAttribute('title', 'Cámara activada');
     scanLoop();
   } catch (e) {
     console.error(e);
@@ -816,7 +820,8 @@ async function startRecognition() {
     mappingStatus.textContent = e.message || String(e);
   } finally {
     openingCamera = false;
-    scanButton.disabled = false;
+    // Permitir reintentar solo si la cámara no quedó activa.
+    scanButton.disabled = Boolean(stream);
   }
 }
 
@@ -838,13 +843,15 @@ continueScanButton.addEventListener('click', () => {
   }
   scanning = true;
   startNoDetectionTimer();
-  bottomStatus.textContent = 'Continúa apuntando a una placa registrada…';
+  scanInstruction.textContent = 'Apuntar cámara para reconocimento de nombre';
+  bottomStatus.textContent = 'Apuntar cámara para reconocimento de nombre';
   scanLoop();
 });
 
 scanButton.addEventListener('click', async () => {
-  if (scanning || stream) await stopRecognition();
-  else await startRecognition();
+  // Se permite iniciar una sola vez mientras la cámara permanezca activa.
+  if (openingCamera || scanning || stream) return;
+  await startRecognition();
 });
 window.addEventListener('pagehide', () => {
   clearNoDetectionTimer();
