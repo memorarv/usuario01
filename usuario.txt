@@ -1,1 +1,5 @@
-usuario01 config0
+usuario01
+config0
+Sebastián Piñera Echeñique
+https://memorarv.github.io/02_Aguirre/
+Sebatián Piñera Echeñique Carvallo
