@@ -11,6 +11,7 @@
 :root {
   --panel: rgba(48, 42, 54, 0.68);
   --border: rgba(255, 255, 255, 0.8);
+  --scan-button-diameter: 88px;
 }
 
 * {
@@ -232,17 +233,23 @@ main {
 }
 
 .bottom-area {
-  margin-top: auto;
-  padding: 28px 24px 0;
+  /* Centro del botón = 2 diámetros desde la parte inferior de la ventana.
+     Distancia desde el borde inferior al botón = 1,5 diámetros. */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--scan-button-diameter) * 1.5);
+  margin: 0;
+  padding: 0;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 14px;
+  z-index: 5;
 }
 
 .scan-button {
-  width: 88px;
-  height: 88px;
+  width: var(--scan-button-diameter);
+  height: var(--scan-button-diameter);
   border-radius: 50%;
   border: 2px solid white;
   background: rgba(55, 49, 60, 0.78);
@@ -272,19 +279,12 @@ main {
 
 
 @media (max-height: 650px) {
+  :root { --scan-button-diameter: 72px; }
   .camera-frame {
     margin-top: 24px;
   }
 
 
-  .bottom-area {
-    padding-top: 14px;
-  }
-
-  .scan-button {
-    width: 72px;
-    height: 72px;
-  }
 }
 
 @media (min-width: 700px) {
@@ -343,6 +343,44 @@ main {
 
 #noDetectionMessage strong {
   font-weight: 900;
+}
+
+/* Aviso de cuenta inactiva. No hay reconocimiento ni acceso a la cámara. */
+.account-inactive-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 12, 20, 0.32);
+  backdrop-filter: blur(5px);
+}
+.account-inactive-overlay[hidden] { display: none !important; }
+.account-inactive-dialog {
+  width: min(100%, 420px);
+  padding: 28px 22px;
+  border-radius: 20px;
+  background: #f7f8fb;
+  color: #172033;
+  text-align: center;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+}
+.account-inactive-dialog p {
+  margin: 0 0 22px;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+.account-inactive-dialog button {
+  min-height: 48px;
+  padding: 10px 26px;
+  border: 0;
+  border-radius: 12px;
+  background: #263c5a;
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 
@@ -437,6 +475,7 @@ main {
     type="button"
     aria-label="Activar cámara"
     title="Activar cámara"
+    disabled
   >
     <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
       <path d="M6 16v-5a4 4 0 0 1 4-4h5
@@ -466,6 +505,14 @@ main {
       <button type="button" id="acceptVideoButton">ACEPTAR</button>
       <button type="button" id="continueScanButton">SEGUIR SCANEO</button>
     </div>
+  </div>
+</div>
+
+<div class="account-inactive-overlay" id="accountInactiveOverlay" role="alertdialog"
+     aria-modal="true" aria-labelledby="accountInactiveMessage" hidden>
+  <div class="account-inactive-dialog">
+    <p id="accountInactiveMessage">Cuenta Inactiva</p>
+    <button type="button" id="closeInactiveButton">CERRAR</button>
   </div>
 </div>
 
@@ -499,11 +546,14 @@ const noDetectionOverlay = document.getElementById('noDetectionOverlay');
 const noDetectionMessage = document.getElementById('noDetectionMessage');
 const acceptVideoButton = document.getElementById('acceptVideoButton');
 const continueScanButton = document.getElementById('continueScanButton');
+const accountInactiveOverlay = document.getElementById('accountInactiveOverlay');
+const closeInactiveButton = document.getElementById('closeInactiveButton');
 const NO_DETECTION_TIMEOUT_MS = 5000;
 let noDetectionTimer = null;
 let destinationUrl = '';
 let titularName = '';
 let usuario = '';
+let accountActive = null; // null: sin verificar; true: activ1; false: activ0
 let records = [];
 const attemptsEl = document.getElementById('ocrAttempts');
 const timeEl = document.getElementById('ocrTime');
@@ -532,40 +582,69 @@ function escapeHtml(value) {
 }
 
 function normalize(value) {
-  return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Conservar correctamente las letras de nombres con tildes y ñ.
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
+function showInactiveAccount() {
+  scanButton.disabled = true;
+  statusLabel.textContent = 'Cuenta Inactiva';
+  statusDot.classList.remove('camera-active');
+  statusDot.style.background = '#DADADA';
+  bottomStatus.textContent = 'Cuenta Inactiva';
+  accountInactiveOverlay.hidden = false;
+  closeInactiveButton.focus();
+}
+closeInactiveButton.addEventListener('click', () => {
+  accountInactiveOverlay.hidden = true;
+});
+
 async function loadMapping() {
   records = [];
   try {
-    // usuario.txt debe estar en la misma carpeta que esta página.
-    // Formato: usuario / modo / título (reservado) / URL / cuatro palabras.
+    // Formato de usuario.txt: 6 líneas.
+    // 1 usuario; 2 activ1/activ0; 3 config0/config1;
+    // 4 titular; 5 URL HTTPS; 6 cuatro palabras de coincidencia.
     const userResponse = await fetch('./usuario.txt', { cache: 'no-store' });
     if (!userResponse.ok) throw new Error(`No se pudo leer usuario.txt (HTTP ${userResponse.status}).`);
     const lines = (await userResponse.text()).replace(/^\uFEFF/, '').split(/\r?\n/).map(line => line.trim());
-    if (lines.length < 5) throw new Error('usuario.txt debe contener al menos 5 líneas.');
+    if (lines.length < 6) throw new Error('usuario.txt debe contener al menos 6 líneas.');
 
     usuario = lines[0] || '';
-    const modoConfiguracion = lines[1] || '';
-    // La tercera línea (Nombre Titular) queda reservada y no se utiliza por ahora.
-    titularName = lines[2] || '';
-    const urlText = lines[3] || '';
-    const words = (lines[4] || '').split(/\s+/).filter(Boolean);
+    const activacion = lines[1] || '';
+    const modoConfiguracion = lines[2] || '';
+    titularName = lines[3] || '';
+    const urlText = lines[4] || '';
+    const words = (lines[5] || '').split(/\s+/).filter(Boolean);
 
     if (!usuario) throw new Error('La primera línea de usuario.txt está vacía.');
+    if (activacion !== 'activ0' && activacion !== 'activ1') {
+      throw new Error('La segunda línea de usuario.txt debe ser activ0 o activ1.');
+    }
     if (modoConfiguracion !== 'config0' && modoConfiguracion !== 'config1') {
-      throw new Error('La segunda línea de usuario.txt debe ser config0 o config1.');
+      throw new Error('La tercera línea de usuario.txt debe ser config0 o config1.');
     }
     settingsButton.style.display = modoConfiguracion === 'config1' ? '' : 'none';
     usuarioLabel.textContent = usuario;
+    accountActive = activacion === 'activ1';
 
-    if (!urlText) throw new Error('La cuarta línea de usuario.txt debe contener la URL de destino.');
+    // Un usuario activ0 nunca llega a iniciar la cámara ni el worker OCR.
+    if (!accountActive) {
+      mappingStatus.textContent = 'Cuenta Inactiva. Reconocimiento bloqueado.';
+      document.getElementById('mappingDetails').textContent = 'Cuenta inactiva.';
+      showInactiveAccount();
+      return [];
+    }
+
+    accountInactiveOverlay.hidden = true;
+    if (!urlText) throw new Error('La quinta línea de usuario.txt debe contener la URL de destino.');
     let url;
     try { url = new URL(urlText); }
-    catch { throw new Error('La URL de destino de la cuarta línea no es válida.'); }
+    catch { throw new Error('La URL de destino de la quinta línea no es válida.'); }
     if (url.protocol !== 'https:') throw new Error('La URL de destino debe usar HTTPS.');
     destinationUrl = url.href;
     noDetectionMessage.innerHTML = `NO SE HA DETECTADO NOMBRE. ¿DESEA VER VIDEO DE <strong>${escapeHtml((titularName || 'ESTE TITULAR').toLocaleUpperCase('es-CL'))}</strong>?`;
-    if (words.length !== 4) throw new Error(`La quinta línea debe contener exactamente 4 palabras; se encontraron ${words.length}.`);
+    if (words.length !== 4) throw new Error(`La sexta línea debe contener exactamente 4 palabras; se encontraron ${words.length}.`);
 
     records = words.map((word, index) => ({ id: word, url: url.href, index: index + 1 }));
     mappingStatus.textContent = `Configuración cargada: ${records.length} palabras para ${usuario}.`;
@@ -579,7 +658,8 @@ async function loadMapping() {
   }
 }
 function getRecords() {
-  if (!records.length) throw new Error('No hay palabras configuradas. Revisa las cinco líneas de usuario.txt en ⚙.');
+  if (!accountActive) throw new Error('Cuenta Inactiva');
+  if (!records.length) throw new Error('No hay palabras configuradas. Revisa las seis líneas de usuario.txt en ⚙.');
   return records;
 }
 function updateStatus(message, detail = '') {
@@ -749,6 +829,7 @@ async function startRecognition() {
   try {
     // Load the user's shared word/URL configuration before activating OCR.
     await loadMapping();
+    if (!accountActive) return; // No se solicita acceso a cámara con activ0.
     getRecords();
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -795,7 +876,7 @@ async function startRecognition() {
   } finally {
     openingCamera = false;
     // Permitir reintentar solo si la cámara no quedó activa.
-    scanButton.disabled = Boolean(stream);
+    scanButton.disabled = Boolean(stream) || accountActive === false;
   }
 }
 
@@ -833,7 +914,14 @@ window.addEventListener('pagehide', () => {
   if (stream) stream.getTracks().forEach(track => track.stop());
   if (worker) worker.terminate().catch(() => {});
 });
-loadMapping().catch(e => console.error('No se pudo cargar la configuración:', e));
+// Comprobar la activación al abrir la página y repetir la verificación al pulsar la cámara.
+loadMapping()
+  .then(() => { if (!openingCamera) scanButton.disabled = accountActive !== true; })
+  .catch(e => {
+    console.error('No se pudo cargar la configuración:', e);
+    statusLabel.textContent = 'Error de configuración';
+    if (!openingCamera) scanButton.disabled = false; // Permitir reintentar la lectura.
+  });
 renderHistory();
 </script>
 
