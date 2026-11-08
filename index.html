@@ -80,6 +80,17 @@ body::before {
   flex-shrink: 0;
 }
 
+
+/* Parpadeo rojo y blanco mientras la cámara está activa */
+.status-dot.camera-active {
+  animation: camera-indicator-blink 0.8s steps(1, end) infinite;
+}
+
+@keyframes camera-indicator-blink {
+  0%, 49.99% { background-color: #FF2525; }
+  50%, 100% { background-color: #FFFFFF; }
+}
+
 .icon-button {
   width: 42px;
   height: 42px;
@@ -638,6 +649,7 @@ async function stopRecognition(updateText = true) {
   video.hidden = true;
   placeholder.hidden = false;
   statusLabel.textContent = 'Cámara desactivada';
+  statusDot.classList.remove('camera-active');
   statusDot.style.background = '#DADADA';
   scanButton.disabled = false;
   scanButton.setAttribute('aria-label', 'Activar cámara');
@@ -713,10 +725,10 @@ async function scanLoop() {
         statusLabel.textContent = 'Placa identificada';
         bottomStatus.textContent = `Placa ${match.id} identificada. Abriendo enlace…`;
 
-        // Destello amarillo durante 0,2 segundos.
+        // Destello amarillo durante 0,1 segundos.
         const focusFrame = document.querySelector('.focus-frame');
         if (focusFrame) focusFrame.classList.add('coincidencia-amarilla');
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100));
         if (focusFrame) focusFrame.classList.remove('coincidencia-amarilla');
 
         // Congelar el último fotograma y mostrarlo antes de navegar.
@@ -744,6 +756,8 @@ async function stopTracksOnly() {
   scanning = false;
   if (stream) stream.getTracks().forEach(track => track.stop());
   stream = null;
+  statusDot.classList.remove('camera-active');
+  statusDot.style.background = '#DADADA';
 }
 
 async function startRecognition() {
@@ -768,7 +782,8 @@ async function startRecognition() {
     placeholder.hidden = true;
     await video.play();
     statusLabel.textContent = 'Inicializando reconocimiento';
-    statusDot.style.background = '#FFFFFF';
+    statusDot.style.background = '';
+    statusDot.classList.add('camera-active');
     bottomStatus.textContent = 'Cargando OCR en español…';
     attempts = 0;
     ocrStart = performance.now();
@@ -834,6 +849,7 @@ scanButton.addEventListener('click', async () => {
 window.addEventListener('pagehide', () => {
   clearNoDetectionTimer();
   scanning = false;
+  statusDot.classList.remove('camera-active');
   if (stream) stream.getTracks().forEach(track => track.stop());
   if (worker) worker.terminate().catch(() => {});
 });
