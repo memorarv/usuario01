@@ -323,7 +323,7 @@ main {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(8, 12, 20, .78);
+  background: rgba(8, 12, 20, .32);
   backdrop-filter: blur(5px);
 }
 .no-detection-overlay.visible { display: flex; }
@@ -643,6 +643,10 @@ function startNoDetectionTimer() {
     // Detiene el ciclo OCR, pero mantiene cámara y worker listos para reanudar.
     scanning = false;
     noDetectionTimer = null;
+    // Congela la imagen visible sin apagar la cámara ni detener sus pistas.
+    if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      video.pause();
+    }
     bottomStatus.textContent = 'No se detectó ningún nombre.';
     noDetectionOverlay.classList.add('visible');
     acceptVideoButton.focus();
@@ -787,6 +791,9 @@ continueScanButton.addEventListener('click', () => {
   streak = 0;
   ocrStart = performance.now();
   totalEl.textContent = '0 s';
+  if (video && video.srcObject && video.paused) {
+    video.play().catch(err => console.warn('No se pudo reanudar el video:', err));
+  }
   scanning = true;
   startNoDetectionTimer();
   bottomStatus.textContent = 'Continúa apuntando a una placa registrada…';
