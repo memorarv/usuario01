@@ -365,6 +365,12 @@ main {
   font-weight: 900;
 }
 
+
+/* Las cuatro esquinas cambian temporalmente a amarillo */
+.focus-frame.coincidencia-amarilla .corner {
+  border-color: #FFD400;
+}
+
 </style>
 </head>
 
@@ -531,6 +537,12 @@ let attempts = 0;
 let ocrStart = 0;
 let scanSessionStart = 0;
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
 function normalize(value) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
@@ -564,7 +576,7 @@ async function loadMapping() {
     catch { throw new Error('La URL de destino de la cuarta línea no es válida.'); }
     if (url.protocol !== 'https:') throw new Error('La URL de destino debe usar HTTPS.');
     destinationUrl = url.href;
-    noDetectionMessage.innerHTML = `NO SE HA DETECTADO NOMBRE. ¿DESEA VER VIDEO DE <strong>${(titularName || 'ESTE TITULAR').toUpperCase()}</strong>?`;
+    noDetectionMessage.innerHTML = `NO SE HA DETECTADO NOMBRE. ¿DESEA VER VIDEO DE <strong>${escapeHtml((titularName || 'ESTE TITULAR').toLocaleUpperCase('es-CL'))}</strong>?`;
     if (words.length !== 4) throw new Error(`La quinta línea debe contener exactamente 4 palabras; se encontraron ${words.length}.`);
 
     records = words.map((word, index) => ({ id: word, url: url.href, index: index + 1 }));
@@ -696,10 +708,21 @@ async function scanLoop() {
       if (streak >= 2) {
         clearNoDetectionTimer();
         redirected = true;
+        scanning = false;
         saveHistory(match.id);
         statusLabel.textContent = 'Placa identificada';
         bottomStatus.textContent = `Placa ${match.id} identificada. Abriendo enlace…`;
+
+        // Destello amarillo durante 0,2 segundos.
+        const focusFrame = document.querySelector('.focus-frame');
+        if (focusFrame) focusFrame.classList.add('coincidencia-amarilla');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (focusFrame) focusFrame.classList.remove('coincidencia-amarilla');
+
+        // Congelar el último fotograma y mostrarlo antes de navegar.
+        if (video.readyState >= 2) video.pause();
         await stopTracksOnly();
+        await new Promise(resolve => setTimeout(resolve, 350));
         window.location.assign(match.url);
         return;
       }
